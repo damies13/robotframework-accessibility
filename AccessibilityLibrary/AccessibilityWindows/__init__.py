@@ -43,10 +43,11 @@ class AccessibilityWindows:
 					# print("child:", child.ControlType, type(child.ControlType), str(child.ControlType))
 					# print("auto.ControlType.WindowControl:", auto.ControlType.WindowControl)
 					if child.ControlType == auto.ControlType.WindowControl:
-						print("child.Name:", child.Name, ", pattern:", pattern)
+						# print("child.Name:", child.Name, ", pattern:", pattern)
 						match = fnmatch.fnmatch(child.Name, pattern)
-						print("match:", match)
+						# print("match:", match)
 						if match:
+							print("child.Name:", child.Name, ", pattern:", pattern)
 							window = child
 							break
 
@@ -84,7 +85,7 @@ class AccessibilityWindows:
 		# print("btn:", window.ButtonControl(searchDepth=3, AutomationId='Close'))
 
 		try:
-			cname = window.ButtonControl(searchDepth=3, Name='Close', searchInterval=0.1)
+			cname = window.ButtonControl(searchDepth=3, searchInterval=0.1, Name='Close')
 			print("cname:", cname)
 			cname.Click()
 			closed = True
@@ -92,7 +93,7 @@ class AccessibilityWindows:
 			print(e)
 		try:
 			if not closed:
-				cautoid = window.ButtonControl(searchDepth=3, AutomationId='Close', searchInterval=0.1)
+				cautoid = window.ButtonControl(searchDepth=3, searchInterval=0.1, AutomationId='Close')
 				print("cautoid:", cautoid)
 				cautoid.Click()
 		except Exception as e:
