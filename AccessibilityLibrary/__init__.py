@@ -1,81 +1,110 @@
 
-from robot.api.deco import keyword, library
-import sys
+import fnmatch	# glob style matching of strings
+import os
+import subprocess
+import uiautomation as auto
 
-@library
-class AccessibilityLibrary:
 
-	platform = None
-	kw_functions = {}
-	kwlib = None
+class AccessibilityWindows:
+	"""docstring for AccessibilityWindows
+	"""
+
+	kw_functions = {
+		"Start Application": "w_run_command",
+		"Run Command": "w_run_command",
+		"Close Window": "w_close_window",
+	}
 
 	def __init__(self):
+		pass
 
-		if sys.platform.startswith('win32'):
-				self.platform = "Windows"
-				import AccessibilityLibrary.AccessibilityWindows
-				self.kwlib = AccessibilityLibrary.AccessibilityWindows.AccessibilityWindows()
-				self.kw_functions = self.kwlib.get_kw_functions()
+	def get_kw_functions(self):
+		return self.kw_functions
 
-		if sys.platform.startswith('darwin'):
-				self.platform = "MacOS"
-				import AccessibilityLibrary.AccessibilityMacOS
-				self.kwlib = AccessibilityLibrary.AccessibilityMacOS.AccessibilityMacOS()
-				self.kw_functions = self.kwlib.get_kw_functions()
+	def _get_window(self, wintitle):
+		window = None
+		if ":" in wintitle:
+			matchtype, pattern = wintitle.split(":")
+			print("matchtype:", matchtype, ", pattern:", pattern)
 
-		if sys.platform.startswith('linux'):
-				self.platform = "Linux"
-				import AccessibilityLibrary.AccessibilityLinux
-				self.kwlib = AccessibilityLibrary.AccessibilityLinux.AccessibilityLinux()
-				self.kw_functions = self.kwlib.get_kw_functions()
+			if matchtype == "regex":
+				window = auto.WindowControl(searchDepth=1, RegexName=pattern)
 
-		if self.platform is None:
-			raise EnvironmentError("OS not currently supported:" + sys.platform)
+			else:
 
-	def _get_kw_function(self, kwname):
-		if kwname in self.kw_functions:
-			kwname = self.kw_functions[kwname]
-			kwfunc = eval("self.kwlib."+kwname)
-			return kwfunc
+				root = auto.GetRootControl()
+				print(root)
+				auto.LogControl(root, 3, True, False)
+
+				# children = root.WindowControl().GetChildren()
+				children = root.GetChildren()
+				# print("children:", children)
+				for child in children:
+					# print("child:", child.ControlType, type(child.ControlType), str(child.ControlType))
+					# print("auto.ControlType.WindowControl:", auto.ControlType.WindowControl)
+					if child.ControlType == auto.ControlType.WindowControl:
+						# print("child.Name:", child.Name, ", pattern:", pattern)
+						match = fnmatch.fnmatch(child.Name, pattern)
+						# print("match:", match)
+						if match:
+							print("child.Name:", child.Name, ", pattern:", pattern)
+							window = child
+							break
+
+				# supportedPatterns = list(filter(lambda t: t[0], ((root.GetPattern(id_), name) for id_, name in auto.PatternIdNames.items())))
+				# print(supportedPatterns)
+
+				# for item in root:
+				# 	print(item)
+
+				# print(auto.GetRootControl())
+				# allwindows = auto.WindowControl(searchDepth=2)
+				# print("allwindows:", allwindows)
+				# auto.LogControl(allwindows, 1, True, False)
+				# fnmatch.fnmatch(windowname, wintitle)
+				# auto.LogControl(controlList[0], 0, showAllName, showPid)
+
+				# window = auto.WindowControl(searchDepth=1, Name=pattern)
 		else:
-			raise NotImplementedError(kwname + " Not Implemented for platform " + self.platform)
+			window = auto.WindowControl(searchDepth=1, Name=wintitle)
+		return window
 
-	@keyword
-	def start_application(self, appname):
-		"""Start Application by application name
+	def w_run_command(self, appname, *args):
+		print("args:", args)
+		print("len(args):", len(args))
+		if len(args)>0:
+			proc = subprocess.Popen([appname, *args])
+		else:
+			proc = subprocess.Popen([appname])
+		return proc
 
-		Attempts to start an application based on the name provided
-		"""
-		print("appname:", appname)
-		kw = self._get_kw_function("Start Application")
-		# print("kw:", kw)
-		kw(appname)
+	def w_close_window(self, wintitle=None):
+		closed = False
+		window = self._get_window(wintitle)
+		print("window:", window)
+		# print("btn:", window.ButtonControl(searchDepth=3, AutomationId='Close'))
 
-	@keyword
-	def run_command(self, executable, *arguments):
-		"""Run Command - runs an os level command line
+		try:
+			cname = window.ButtonControl(searchDepth=3, searchInterval=0.1, Name='Close')
+			print("cname:", cname)
+			cname.Click()
+			closed = True
+		except Exception as e:
+			print(e)
+		try:
+			if not closed:
+				cautoid = window.ButtonControl(searchDepth=3, searchInterval=0.1, AutomationId='Close')
+				print("cautoid:", cautoid)
+				cautoid.Click()
+		except Exception as e:
+			print(e)
 
-		Arguments:
-		- Executable - the executabe (including it's path) that you want to run
-		- Arguments - a list of command line arguments to the executabe
+	def w_minimise_window(self, wintitle=None):
+		window = self._get_window(wintitle)
+		print("window:", window)
+		window.ButtonControl(searchDepth=3, AutomationId='Minimize').Click()
 
-		"""
-		print("executable:", executable, ",	arguments:", arguments)
-		kw = self._get_kw_function("Run Command")
-		# print("kw:", kw)
-		ret = kw(executable, *arguments)
-		return ret
-
-	@keyword
-	def close_window(self, windowtitle):
-		"""Close Window - Closes the application window
-
-		Arguments:
-		- windowname - can be one of the following
-			- The exact name of the window e.g. `Calculator`
-			- a regular expression matchin the window name e.g. `regex:.*Notepad`
-			- a glob pattern matching the window name e.g. `glob:*Notepad`
-
-		"""
-		kw = self._get_kw_function("Close Window")
-		ret = kw(windowtitle)
+	def w_maximise_window(self, wintitle=None):
+		window = self._get_window(wintitle)
+		print("window:", window)
+		window.ButtonControl(searchDepth=3, AutomationId='Maximize').Click()
